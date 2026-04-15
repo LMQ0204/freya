@@ -40,23 +40,16 @@ impl<V, ID: Hash + Eq> LRUCache<V, ID> {
         let mut hasher = FxHasher::default();
         hash_value.hash(&mut hasher);
         let hash = hasher.finish();
-        let mut value = self.map.get_mut(&hash);
 
-        let cache_value = value.as_ref().map(|v| v.1.clone());
+        let cache_value = self.map.get(&hash).map(|v| v.1.clone());
 
         let hashes = self.users.entry(id).or_default();
 
         // New hashed value
         if !hashes.contains(&hash) {
-            if let Some(value) = &mut value {
-                value.0 += 1;
-                hashes.push(hash);
-            }
-
             let index = match hashes.len() {
                 ..=1 => 0,
-                2 => 1,
-                len => len - 2,
+                len => len - 1,
             };
             // Clean the first current hash
             for old_hash in hashes.drain(0..index) {
@@ -69,6 +62,10 @@ impl<V, ID: Hash + Eq> LRUCache<V, ID> {
                 if entry.0 == 0 {
                     self.map.remove(&old_hash);
                 }
+            }
+            if let Some(value) = self.map.get_mut(&hash) {
+                value.0 += 1;
+                hashes.push(hash);
             }
         }
 
